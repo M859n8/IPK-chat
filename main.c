@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/socket.h>
+#include "tcp.h"
 
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -12,8 +13,7 @@
 #define DEFAULT_TIMEOUT 250
 #define DEFAULT_RETRANSMISSIONS 3
 
-
-
+#define BUFFER_SIZE 2048
 
 typedef struct {
     char transport_prtc;
@@ -36,7 +36,7 @@ int parse_arguments(int argc, char *argv[], Arguments *options) {
             } else if (strcmp(argv[i + 1], "udp") == 0) {
                 options->transport_prtc = atoi(argv[i + 1]); 
             } else {
-                printf("Invalid transport protocol specified.\n");
+                perror("ERR : Invalid transport protocol specified.\n");
                 return -1;
             }
         } else if (strcmp(argv[i], "-s") == 0) {
@@ -74,38 +74,56 @@ int main(int argc, char *argv[]) {
 
     // Validate mandatory argument
     if (options.server_addr == NULL) {
-        printf("Server address is mandatory.\n");
+        perror("ERR : Server address is mandatory.\n");
         return 1;
     }
+    int sockfd;
+    struct sockaddr_in server_addr;
+    char input_message[BUFFER_SIZE]; //user write message
+    char send_message[BUFFER_SIZE];
+    char response_message[BUFFER_SIZE];
 
-    // int client_socket = socket(AF_INET, SOCK_DGRAM, 0);
-    // if (client_socket <= 0)
-    // {
-    //     perror("ERROR: socket");
-    //     exit(EXIT_FAILURE);
-    // }
-    // struct sockaddr_in server_address;
-    // server_address.sin_family = AF_INET;
-    // server_address.sin_port = htons(options.server_port);
-    // server_address.sin_addr.s_addr = inet_addr(options.server_addr);
+     // Створення сокету
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("ERR : Socket creation error\n");
+        exit(EXIT_FAILURE);
+    }
 
-    // char input_message[1400]; //user write message
-    // char response[1400];
+    // Ініціалізація адреси сервера
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(options.server_port);
+    if (inet_pton(AF_INET, options.server_addr, &server_addr.sin_addr) <= 0) {
+        perror("ERR : Invalid address / Address not supported\n");
+        exit(EXIT_FAILURE);
+    }
 
-    // bool bye_message = false;
-    // while (!bye_message) {
-    //     fgets(input_message, sizeof(input_message), stdin);
-    //     sendto(client_socket, input_message, strlen(input_message), 0, (struct sockaddr *)&server_address, sizeof(server_address));
-        
-    //     recvfrom(client_socket, response, sizeof(response), 0, NULL, NULL);
-        
-    //     printf("Server response: %s\n", response);
-    //     if (strcmp(response, "BYE") == 0) {
-    //         bye_message = true;
-    //         break; 
-    //     }
-    // }
-    // close(client_socket);
-    
+    // Підключення до сервера
+    if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("ERR : Connection failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+
+    bool bye_message = false;
+    while (!bye_message) {
+        printf("write input : ");
+        fgets(input_message, sizeof(input_message), stdin);
+
+        // char words[100][130];
+        // split_by_words(input_message, words);
+        // if (strcmp(words[0], "/help") == 0){
+        //     process_help();
+        // }
+        process_auth(input_message, send_message);
+        // printf("output : ");
+        // printf("%s\n", send_message);
+
+        // send_message[strcspn(send_message, "\n")] = '\n\0';
+        send(sockfd, send_message, strlen(send_message), 0);
+        recv(sockfd, response_message, BUFFER_SIZE, 0);
+        printf("Response from server: %s\n", response_message);
+    }
+    close(sockfd);
     return 0;
 }

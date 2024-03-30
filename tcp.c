@@ -4,9 +4,17 @@
 
 #define MAX_LEN 2048
 char *displayname;
-void process_help() {
-    printf("/auth	{Username} {Secret} {DisplayName}\n/join	{ChannelID}	\n/rename	{DisplayName}\n/help \n");
+
+bool process_help(char *input) {
+    char words[100][130]; 
+    split_by_words(input, words);
+    if(strcmp(words[0], "/help") == 0){
+        printf("/auth	{Username} {Secret} {DisplayName}\n/join	{ChannelID}	\n/rename	{DisplayName}\n/help \n");
+        return true;
+    }else{
+        return false;
     }
+}
 
 // Функція для перевірки, чи є слово допустимим ідентифікатором (згідно з граматикою)
 //count = 20 for id , count = 128 for secret
@@ -63,43 +71,46 @@ void split_by_words(char *input, char(*words)[130]){
 
 }
 // Функція для обробки команди AUTH
-void process_auth(char *input, char *output) {
-    printf("ok\n");
+bool process_auth(char *input, char *output) {
     char words[100][130]; 
     split_by_words(input, words);
     if (strcmp(words[0], "/auth") == 0){
-        printf("ok1\n");
-        printf("check input : %s\n", words[1]);
         if(id_or_secret(words[1], 20 ) && dname(words[3]) && id_or_secret(words[2], 128) ){
-            printf("ok2\n");
             sprintf(output, "AUTH %s AS %s USING %s\r\n", words[1], words[3], words[2]);
-            displayname = words[3]; //set the displaynamp
-            
+            displayname = words[3]; //set the displayname
+            return true;
         }
     }
+    return false;
+    
 }
 
 // Функція для обробки команди JOIN
-void process_join(char *input, char *output) {
+bool process_join(char *input, char *output) {
     char words[100][130]; 
     split_by_words(input, words);
     if (strcmp(words[0], "/join") == 0){
         if(id_or_secret(words[1], 20 ) ){
             sprintf(output, "JOIN %s AS %s \r\n", words[1], displayname);
-            
+            return true;
         }
     }
+    return false;
+    
 }
 
-void process_rename(char *input) {
+bool process_rename(char *input) {
     char words[100][130]; 
     split_by_words(input, words);
     if (strcmp(words[0], "/rename") == 0){
         if(dname(words[1])){
             //set the dislayname
             displayname = words[1];
+            return true;
         }
     }
+    return false;
+    
 }
 
 
@@ -108,66 +119,99 @@ void process_message(char *input, char *output) {
    
 }
 
-void income_replye(char *input, char *output) {
+bool income_replye(char *input, char *output) {
     char words[100][130]; 
     split_by_words(input, words);
-    if (strcmp(words[1], "OK") == 0){
-        sprintf(output, "Succes : %s \n", words[3]);
+    if(strcmp(words[0], "REPLY") != 0){
+        return false;
+
     }
-    else if (strcmp(words[1], "NOK") == 0){
-        sprintf(output, "Succes : %s \n", words[3]);
+    char rest_of_words[130 * (100 - 3)];
+    rest_of_words[0] = '\0'; 
+    // Конкатенуємо всі елементи після другого
+    for (int i = 3; i < 100; i++) {
+        // Перевіряємо, чи рядок не порожній
+        if (strlen(words[i]) == 0) {
+            break; // Якщо порожній, перериваємо цикл
+        }
+        strcat(rest_of_words, words[i]);
+        strcat(rest_of_words, " "); // Додаємо пробіл між словами
     }
     
+    if (strcmp(words[1], "OK") == 0){
+        sprintf(output, "Success : %s \n", rest_of_words);
+        fprintf(stderr, "%s", output);
+        return true;
+    }
+    else if (strcmp(words[1], "NOK") == 0){
+        sprintf(output, "Failure : %s \n", rest_of_words);
+        fprintf(stderr, "%s", output);
+        return false;
+    }
+    return false;
 }
 
 
-void income_err(char *input, char *output) {
+bool income_err(char *input, char *output) {
     char words[100][130]; 
     split_by_words(input, words);
+    if(strcmp(words[0], "ERR") != 0){
+        return false;
+
+    }
+
     // Рядок, в який будемо конкатенувати всі елементи, починаючи з третього
     char rest_of_words[130 * (100 - 3)];
     rest_of_words[0] = '\0'; // Ініціалізуємо як порожній рядок
-
+    
     // Конкатенуємо всі елементи після другого
-    for (int i = 3; i < 100; i++) {
+    for (int i = 4; i < 100; i++) {
+        // Перевіряємо, чи рядок не порожній
+        if (strlen(words[i]) == 0) {
+            break; // Якщо порожній, перериваємо цикл
+        }
         strcat(rest_of_words, words[i]);
         strcat(rest_of_words, " "); // Додаємо пробіл між словами
     }
 
     sprintf(output, "ERR FROM %s : %s \n", words[2], rest_of_words);
+    fprintf(stderr, "%s", output);
+    return true;
 }
 
+bool income_msg(char *input, char *output){
+    char words[100][130]; 
+    split_by_words(input, words);
+    if(strcmp(words[0], "MSG") != 0){
+        return false;
 
+    }
+    char rest_of_words[130 * (100 - 3)];
+    rest_of_words[0] = '\0'; // Ініціалізуємо як порожній рядок
 
+    // Конкатенуємо всі елементи після другого
+    for (int i = 4; i < 100; i++) {
+        // Перевіряємо, чи рядок не порожній
+        if (strlen(words[i]) == 0) {
+            break; // Якщо порожній, перериваємо цикл
+        }
+        strcat(rest_of_words, words[i]);
+        strcat(rest_of_words, " "); // Додаємо пробіл між словами
+    }
 
+    sprintf(output, " %s : %s \n", words[2], rest_of_words);
+    return true;
+}
 
-// int process_input(char *input, char *output) {
-    
-//     char words[100][130]; 
-//     split_by_words(input, words);
+bool income_bye(char *input, char *output){
+    char words[100][130]; 
+    split_by_words(input, words);
+    if(strcmp(words[0], "BYE") == 0){
+        sprintf(output, "BYE\n");
+        return true;
 
+    }
+    return false;
 
-        
+}
 
-//         if (strcmp(words[0], "/auth") == 0){
-//             process_auth(words, output);
-//         }else if (strcmp(words[0], "/join") == 0){
-//             process_join(words, output);
-//         }else if (strcmp(words[0], "/rename") == 0){
-//             // process_rename(words, output);
-//             if(dname(words[1])){
-//                 //set the dislayname
-//                 displayname = words[1];
-//             }
-            
-//         }else if (strcmp(words[0], "/help") == 0){
-//             process_help();
-//         }else{
-//             printf("ERR Unknown command\r\n");
-//         }
-
-//         printf("dnaem %s\n", displayname);
-//         // printf("\r\n"); // Вивід порожнього рядка для розділення виводу
-    
-//     return 0;
-// }

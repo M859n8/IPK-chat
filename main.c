@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 #include "tcp.h"
-
+#include <errno.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 
@@ -77,14 +77,16 @@ int main(int argc, char *argv[]) {
         perror("ERR : Server address is mandatory.\n");
         return 1;
     }
-    int sockfd;
+    int client_socket;
     struct sockaddr_in server_addr;
     char input_message[BUFFER_SIZE]; //user write message
     char send_message[BUFFER_SIZE];
     char response_message[BUFFER_SIZE];
+    char output_message[BUFFER_SIZE];
+    char error_message[BUFFER_SIZE];
 
      // Створення сокету
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((client_socket= socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("ERR : Socket creation error\n");
         exit(EXIT_FAILURE);
     }
@@ -98,32 +100,99 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+  
+
+
     // Підключення до сервера
-    if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("ERR : Connection failed\n");
         exit(EXIT_FAILURE);
     }
 
 
-    bool bye_message = false;
-    while (!bye_message) {
+    // bool bye_message = false;
+    // while (!bye_message) {
         printf("write input : ");
         fgets(input_message, sizeof(input_message), stdin);
 
-        // char words[100][130];
-        // split_by_words(input_message, words);
-        // if (strcmp(words[0], "/help") == 0){
-        //     process_help();
-        // }
-        process_auth(input_message, send_message);
-        // printf("output : ");
-        // printf("%s\n", send_message);
+        bool auth = false;
+        bool open = true;
+        //auth state
+        while(!auth ){
+            if(!process_help(input_message) && !process_rename(input_message) ){
+                process_auth(input_message, send_message);
+                
+                send(client_socket, send_message, strlen(send_message), 0);
+                recv(client_socket, response_message, BUFFER_SIZE, 0);
+                if(income_err(response_message, error_message) || income_bye(response_message, output_message)){
+                    auth = true; //can exit auth state
+                    open = false; //can not go to open state
+                    
+                }else if(income_replye(response_message, error_message)){
+                    auth = true;
+                }else if(income_msg(response_message, output_message)){
+                    printf("Response from server: %s", output_message);
+                }else{
+                    auth = false;
+                    printf("0write input : ");
+                    fgets(input_message, sizeof(input_message), stdin);
+                }
+            }else{
+                printf("1write input : ");
+                fgets(input_message, sizeof(input_message), stdin);
+            }
+        }
+        // //send_message[strcspn(send_message, "\n")] = '\n\0';
 
-        // send_message[strcspn(send_message, "\n")] = '\n\0';
-        send(sockfd, send_message, strlen(send_message), 0);
-        recv(sockfd, response_message, BUFFER_SIZE, 0);
-        printf("Response from server: %s\n", response_message);
-    }
-    close(sockfd);
+        //open state
+        while(open){
+            fgets(input_message, sizeof(input_message), stdin);
+            if(process_help(input_message) || process_rename(input_message) ){
+                fgets(input_message, sizeof(input_message), stdin);
+                
+            }else if( process_join(input_message, send_message)){
+                send(client_socket, send_message, strlen(send_message), 0);
+                recv(client_socket, response_message, BUFFER_SIZE, 0);
+
+                if(income_err(response_message, error_message) || income_bye(response_message, output_message)){
+                    open = false; //can not go to open state
+                    
+                }
+                else if(income_msg(response_message, output_message)){
+                    printf("Response from server: %s", output_message);
+                }else{
+                    income_replye(response_message, error_message);
+                    open = true;;
+                }
+
+
+            }else{
+                process_message(input_message, send_message);
+                send(client_socket, send_message, strlen(send_message), 0);
+                recv(client_socket, response_message, BUFFER_SIZE, 0);
+
+                if(income_err(response_message, error_message) || income_bye(response_message, output_message)){
+                    open = false; 
+                    
+                }
+                else if(income_msg(response_message, output_message)){
+                    printf("Response from server: %s", output_message);
+                }else{
+                    income_replye(response_message, error_message);
+                    open = true;;
+                }
+            }
+
+        }
+
+        // income_msg(response_message, output_message);
+        //income_err(response_message, error_message);
+        // printf("strlen %d\n", strlen(output_message) );
+        if(strlen(output_message) != 2){
+            printf("Response from server: %s", output_message);
+        }
+        
+    // }
+    close(client_socket);
     return 0;
 }

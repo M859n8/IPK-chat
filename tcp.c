@@ -3,7 +3,6 @@
 #include <stdlib.h>
 
 #define MAX_LEN 2048
-char *displayname;
 
 bool process_help(char *input) {
     char words[100][130]; 
@@ -59,10 +58,13 @@ bool dname(char *word) {
 }
 void split_by_words(char *input, char(*words)[130]){
     int word_count = 0;
+    //copy of the input
+    char input_copy[1000];
+    strcpy(input_copy, input);
     //delete new line symbol from the end
-    input[strcspn(input, "\n")] = 0;
+    input_copy[strcspn(input_copy, "\n")] = 0;
     //divide input into words
-    char *token = strtok(input, " ");
+    char *token = strtok(input_copy, " ");
     while (token != NULL) {
         strcpy(words[word_count], token);
         word_count++;
@@ -70,14 +72,18 @@ void split_by_words(char *input, char(*words)[130]){
     }
 
 }
+
 // Функція для обробки команди AUTH
-bool process_auth(char *input, char *output) {
+bool process_auth(char *input, char *output, char *displayname) {
     char words[100][130]; 
     split_by_words(input, words);
     if (strcmp(words[0], "/auth") == 0){
         if(id_or_secret(words[1], 20 ) && dname(words[3]) && id_or_secret(words[2], 128) ){
             sprintf(output, "AUTH %s AS %s USING %s\r\n", words[1], words[3], words[2]);
-            displayname = words[3]; //set the displayname
+            // printf("AUTH %s AS %s USING %s\r\n", words[1], words[3], words[2]);
+            for (int i = 0; i < 20; i++) {
+                displayname[i] = words[3][i];
+            }
             return true;
         }
     }
@@ -86,12 +92,14 @@ bool process_auth(char *input, char *output) {
 }
 
 // Функція для обробки команди JOIN
-bool process_join(char *input, char *output) {
+bool process_join(char *input, char *output, char *displayname) {
     char words[100][130]; 
     split_by_words(input, words);
     if (strcmp(words[0], "/join") == 0){
         if(id_or_secret(words[1], 20 ) ){
-            sprintf(output, "JOIN %s AS %s \r\n", words[1], displayname);
+            sprintf(output, "JOIN %s AS %s\r\n", words[1], displayname);
+            // printf("JOIN %s AS %s \r\n", words[1], displayname);
+
             return true;
         }
     }
@@ -99,13 +107,15 @@ bool process_join(char *input, char *output) {
     
 }
 
-bool process_rename(char *input) {
+bool process_rename(char *input, char *displayname) {
     char words[100][130]; 
     split_by_words(input, words);
     if (strcmp(words[0], "/rename") == 0){
         if(dname(words[1])){
             //set the dislayname
-            displayname = words[1];
+            for (int i = 0; i < 20; i++) {
+                displayname[i] = words[1][i];
+            }
             return true;
         }
     }
@@ -114,18 +124,21 @@ bool process_rename(char *input) {
 }
 
 
-void process_message(char *input, char *output) {
-    sprintf(output, "MSG FROM %s IS %s\r\n", displayname, input);
-   
+void process_message(char *input, char *output, char *displayname) {
+    input[strcspn(input, "\n")] = 0;
+    sprintf(output, "MSG FROM %s IS %s\r\n", displayname,input);
+    // printf("MSG FROM %s IS %s\r\n", displayname, rest_of_words);
 }
 
 bool income_replye(char *input, char *output) {
     char words[100][130]; 
+    // memset(words, 0, sizeof(words));
     split_by_words(input, words);
     if(strcmp(words[0], "REPLY") != 0){
         return false;
 
     }
+
     char rest_of_words[130 * (100 - 3)];
     rest_of_words[0] = '\0'; 
     // Конкатенуємо всі елементи після другого
@@ -137,14 +150,13 @@ bool income_replye(char *input, char *output) {
         strcat(rest_of_words, words[i]);
         strcat(rest_of_words, " "); // Додаємо пробіл між словами
     }
-    
     if (strcmp(words[1], "OK") == 0){
-        sprintf(output, "Success : %s \n", rest_of_words);
+        sprintf(output, "Success: %s\n", rest_of_words);
         fprintf(stderr, "%s", output);
         return true;
     }
     else if (strcmp(words[1], "NOK") == 0){
-        sprintf(output, "Failure : %s \n", rest_of_words);
+        sprintf(output, "Failure: %s\n", rest_of_words);
         fprintf(stderr, "%s", output);
         return false;
     }
@@ -174,7 +186,7 @@ bool income_err(char *input, char *output) {
         strcat(rest_of_words, " "); // Додаємо пробіл між словами
     }
 
-    sprintf(output, "ERR FROM %s : %s \n", words[2], rest_of_words);
+    sprintf(output, "ERR FROM %s: %s\n", words[2], rest_of_words);
     fprintf(stderr, "%s", output);
     return true;
 }
@@ -199,7 +211,8 @@ bool income_msg(char *input, char *output){
         strcat(rest_of_words, " "); // Додаємо пробіл між словами
     }
 
-    sprintf(output, " %s : %s \n", words[2], rest_of_words);
+    // sprintf(output, " %s : %s \n", words[2], rest_of_words);
+    printf("%s : %s \n", words[2], rest_of_words);
     return true;
 }
 
@@ -207,11 +220,10 @@ bool income_bye(char *input, char *output){
     char words[100][130]; 
     split_by_words(input, words);
     if(strcmp(words[0], "BYE") == 0){
-        sprintf(output, "BYE\n");
+        printf("BYE\n");
         return true;
 
     }
     return false;
-
 }
 

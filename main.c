@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,12 +9,18 @@
 #include <errno.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <sys/types.h>
 
 #define DEFAULT_PORT 4567
 #define DEFAULT_TIMEOUT 250
 #define DEFAULT_RETRANSMISSIONS 3
 
 #define BUFFER_SIZE 2048
+#define DNAME_SIZE 20
+
+
 
 typedef struct {
     char transport_prtc;
@@ -36,7 +43,7 @@ int parse_arguments(int argc, char *argv[], Arguments *options) {
             } else if (strcmp(argv[i + 1], "udp") == 0) {
                 options->transport_prtc = atoi(argv[i + 1]); 
             } else {
-                perror("ERR : Invalid transport protocol specified.\n");
+                perror("ERR: Invalid transport protocol specified.\n");
                 return -1;
             }
         } else if (strcmp(argv[i], "-s") == 0) {
@@ -57,8 +64,36 @@ int parse_arguments(int argc, char *argv[], Arguments *options) {
     return 0;
 }
 
+char *get_host_by_name(char *hostname) {
+
+    struct addrinfo hints, *result, *p;
+    char ip_address[INET_ADDRSTRLEN]; 
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET; 
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (getaddrinfo(hostname, NULL, &hints, &result) != 0) {
+        fprintf(stderr, "ERR: can't get ip.\n");
+        return NULL;
+    }
+
+    for (p = result; p != NULL; p = p->ai_next) {
+        if (p->ai_family == AF_INET) { 
+            struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+            inet_ntop(AF_INET, &(ipv4->sin_addr), ip_address, INET_ADDRSTRLEN);
+            break; // Отримали першу IPv4 адресу
+        }
+    }
+
+    freeaddrinfo(result);
+    return strdup(ip_address);
+}
+
+
 
 int main(int argc, char *argv[]) {
+
     Arguments options;
     options.transport_prtc = '\0'; 
     options.server_addr = NULL;
@@ -74,9 +109,12 @@ int main(int argc, char *argv[]) {
 
     // Validate mandatory argument
     if (options.server_addr == NULL) {
-        perror("ERR : Server address is mandatory.\n");
+        perror("ERR: Server address is mandatory.\n");
         return 1;
     }
+    options.server_addr = get_host_by_name(options.server_addr);
+
+
     int client_socket;
     struct sockaddr_in server_addr;
     char input_message[BUFFER_SIZE]; //user write message
@@ -84,10 +122,12 @@ int main(int argc, char *argv[]) {
     char response_message[BUFFER_SIZE];
     char output_message[BUFFER_SIZE];
     char error_message[BUFFER_SIZE];
+    char displayname[DNAME_SIZE];
 
+   
      // Створення сокету
     if ((client_socket= socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("ERR : Socket creation error\n");
+        perror("ERR: Socket creation error\n");
         exit(EXIT_FAILURE);
     }
 
@@ -96,7 +136,7 @@ int main(int argc, char *argv[]) {
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(options.server_port);
     if (inet_pton(AF_INET, options.server_addr, &server_addr.sin_addr) <= 0) {
-        perror("ERR : Invalid address / Address not supported\n");
+        perror("ERR: Invalid address / Address not supported\n");
         exit(EXIT_FAILURE);
     }
 
@@ -105,52 +145,53 @@ int main(int argc, char *argv[]) {
 
     // Підключення до сервера
     if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("ERR : Connection failed\n");
+        perror("ERR: Connection failed\n");
         exit(EXIT_FAILURE);
     }
 
 
     // bool bye_message = false;
     // while (!bye_message) {
-        printf("write input : ");
-        fgets(input_message, sizeof(input_message), stdin);
+        //fgets(input_message, sizeof(input_message), stdin);
 
         bool auth = false;
         bool open = true;
+        
         //auth state
         while(!auth ){
-            if(!process_help(input_message) && !process_rename(input_message) ){
-                process_auth(input_message, send_message);
-                
-                send(client_socket, send_message, strlen(send_message), 0);
-                recv(client_socket, response_message, BUFFER_SIZE, 0);
-                if(income_err(response_message, error_message) || income_bye(response_message, output_message)){
-                    auth = true; //can exit auth state
-                    open = false; //can not go to open state
-                    
-                }else if(income_replye(response_message, error_message)){
-                    auth = true;
-                }else if(income_msg(response_message, output_message)){
-                    printf("Response from server: %s", output_message);
+            fgets(input_message, sizeof(input_message), stdin);
+            if(!process_help(input_message) && !process_rename(input_message, displayname) ){
+                if(process_auth(input_message, send_message, displayname)){
+                    send(client_socket, send_message, strlen(send_message), 0);
+                    recv(client_socket, response_message, BUFFER_SIZE, 0);
+                    if(income_err(response_message, error_message) || income_bye(response_message, output_message)){
+                        auth = true; //can exit auth state
+                        open = false; //can not go to open state
+                        
+                    }else if(income_replye(response_message, error_message)){
+                        auth = true;
+                    }else if(income_msg(response_message, output_message)){
+                        auth = false;
+                    }else{
+                        auth = false;
+                        //fgets(input_message, sizeof(input_message), stdin);
+                    }
                 }else{
-                    auth = false;
-                    printf("0write input : ");
-                    fgets(input_message, sizeof(input_message), stdin);
+                    fprintf(stderr, "ERR: authentification required\n");
                 }
-            }else{
-                printf("1write input : ");
-                fgets(input_message, sizeof(input_message), stdin);
             }
+            // else{
+                // fgets(input_message, sizeof(input_message), stdin);
+            // }
         }
-        // //send_message[strcspn(send_message, "\n")] = '\n\0';
 
         //open state
         while(open){
             fgets(input_message, sizeof(input_message), stdin);
-            if(process_help(input_message) || process_rename(input_message) ){
-                fgets(input_message, sizeof(input_message), stdin);
+            if(process_help(input_message) || process_rename(input_message, displayname) ){
+                //fgets(input_message, sizeof(input_message), stdin);
                 
-            }else if( process_join(input_message, send_message)){
+            }else if( process_join(input_message, send_message, displayname)){
                 send(client_socket, send_message, strlen(send_message), 0);
                 recv(client_socket, response_message, BUFFER_SIZE, 0);
 
@@ -159,15 +200,16 @@ int main(int argc, char *argv[]) {
                     
                 }
                 else if(income_msg(response_message, output_message)){
-                    printf("Response from server: %s", output_message);
+                    open = true;
+                    // printf("Response from server: %s", output_message);
                 }else{
                     income_replye(response_message, error_message);
-                    open = true;;
+                    open = true;
                 }
 
 
             }else{
-                process_message(input_message, send_message);
+                process_message(input_message, send_message, displayname);
                 send(client_socket, send_message, strlen(send_message), 0);
                 recv(client_socket, response_message, BUFFER_SIZE, 0);
 
@@ -176,7 +218,8 @@ int main(int argc, char *argv[]) {
                     
                 }
                 else if(income_msg(response_message, output_message)){
-                    printf("Response from server: %s", output_message);
+                    open = true;;
+                    // printf("Response from server: %s", output_message);
                 }else{
                     income_replye(response_message, error_message);
                     open = true;;
@@ -188,9 +231,10 @@ int main(int argc, char *argv[]) {
         // income_msg(response_message, output_message);
         //income_err(response_message, error_message);
         // printf("strlen %d\n", strlen(output_message) );
-        if(strlen(output_message) != 2){
-            printf("Response from server: %s", output_message);
-        }
+
+        // if(strlen(output_message) != 2){
+        //     printf("Response from server: %s", output_message);
+        // }
         
     // }
     close(client_socket);

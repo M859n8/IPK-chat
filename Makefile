@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-std=c99 -Wall -pedantic -g
+CFLAGS=-std=c99 -Wall -pedantic -g 
 BIN=ipk24chat-client
 
 all:

@@ -1,6 +1,6 @@
 #ifndef _TCP_H
 #define _TCP_H
-
+//Author: xkuche01 Kucher Maryna
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

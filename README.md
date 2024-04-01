@@ -62,6 +62,6 @@ Server.
 The program can receive multiple receives between sends, but it is impossible to test this on a local server.
 
 ## <a id="6"></a> Sources
-[Task](https://git.fit.vutbr.cz/NESFIT/IPK-Projects-2024/src/branch/master/Project%201#program-execution)
-[Lectures](https://moodle.vut.cz/pluginfile.php/823898/mod_folder/content/0/IPK2023-24L-04-PROGRAMOVANI.pdf)
-[Guide to Network Programming](https://beej.us/guide/bgnet/html/)
+1. [Task](https://git.fit.vutbr.cz/NESFIT/IPK-Projects-2024/src/branch/master/Project%201#program-execution)
+2. [Lectures](https://moodle.vut.cz/pluginfile.php/823898/mod_folder/content/0/IPK2023-24L-04-PROGRAMOVANI.pdf)
+3. [Guide to Network Programming](https://beej.us/guide/bgnet/html/)

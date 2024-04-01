@@ -1,3 +1,4 @@
+//Author: xkuche01 Kucher Maryna
 #include "tcp.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -7,11 +7,12 @@
 #include <stdbool.h>
 
 
-void split_by_words(char *input, char (*words)[130]);
+void split_by_words(char *input, char ***words, int *word_count);
 bool process_help(char *input);
 bool id_or_secret(char *word, int count);
 bool content(char *word);
 bool dname(char *word);
+
 bool process_auth(char *input, char *output, char *displayname);
 bool process_join(char *input, char *output, char *displayname);
 bool process_rename(char *input, char *displayname) ;

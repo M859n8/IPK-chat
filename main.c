@@ -45,7 +45,7 @@ int parse_arguments(int argc, char *argv[], Arguments *options) {
                 options->transport_prtc = atoi(argv[i + 1]); 
                 exit(0); //udp was not implemented
             } else {
-                perror("ERR: Invalid transport protocol specified.\n");
+                fprintf(stderr, "ERR: Invalid transport protocol specified.\n");
                 return -1;
             }
         } else if (strcmp(argv[i], "-s") == 0) {
@@ -60,7 +60,7 @@ int parse_arguments(int argc, char *argv[], Arguments *options) {
             help_output();
             exit(0);
         } else {
-            perror("ERR: Invalid argument type.\n");
+            fprintf(stderr, "ERR: Invalid argument type.\n");
             //wrong type of argument
             exit(1);
         }
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
 
     //check mandatory argument
     if (options.server_addr == NULL) {
-        perror("ERR: Server address is mandatory.\n");
+        fprintf(stderr, "ERR: Server address is mandatory.\n");
         return 1;
     }
     //calculate server ip address
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
 
     //create socket, check if it is ok
     if ((client_socket= socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("ERR: Socket creation error\n");
+        fprintf(stderr, "ERR: Socket creation error\n");
         exit(EXIT_FAILURE);
     }
 
@@ -151,13 +151,13 @@ int main(int argc, char *argv[]) {
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(options.server_port);
     if (inet_pton(AF_INET, options.server_addr, &server_addr.sin_addr) <= 0) {
-        perror("ERR: Invalid address / Address not supported\n");
+        fprintf(stderr, "ERR: Invalid address / Address not supported\n");
         exit(EXIT_FAILURE);
     }
 
     //connect to the server
     if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("ERR: Connection failed\n");
+        fprintf(stderr, "ERR: Connection failed\n");
         exit(EXIT_FAILURE);
     }
     //this value will help close the socket if user use "cntrl+c"
@@ -216,6 +216,8 @@ int main(int argc, char *argv[]) {
             }else{
                 //if user input contains other message something but auth
                 fprintf(stderr, "ERR: authentification required\n");
+                auth = true; //can exit auth state
+                open = false; //can not go to open state
             }
         }
     }

@@ -19,7 +19,7 @@ void process_message(char *input, char *output, char *displayname);
 
 bool income_replye(char *input, char *output);
 bool income_err(char *input, char *output);
-bool income_msg(char *input, char *output);
-bool income_bye(char *input, char *output);
+bool income_msg(char *input);
+bool income_bye(char *input);
 
 #endif //_TCP_H

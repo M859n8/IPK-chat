@@ -191,7 +191,7 @@ bool income_err(char *input, char *output) {
     return true;
 }
 
-bool income_msg(char *input, char *output){
+bool income_msg(char *input){
     char words[100][130]; 
     split_by_words(input, words);
     if(strcmp(words[0], "MSG") != 0){
@@ -216,7 +216,7 @@ bool income_msg(char *input, char *output){
     return true;
 }
 
-bool income_bye(char *input, char *output){
+bool income_bye(char *input){
     char words[100][130]; 
     split_by_words(input, words);
     if(strcmp(words[0], "BYE") == 0){
@@ -226,4 +226,3 @@ bool income_bye(char *input, char *output){
     }
     return false;
 }
-

@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/types.h>
+#include <signal.h>
 
 #define DEFAULT_PORT 4567
 #define DEFAULT_TIMEOUT 250
@@ -90,7 +91,14 @@ char *get_host_by_name(char *hostname) {
     return strdup(ip_address);
 }
 
-
+int helper_value;
+void sigint_handler() {
+    char send_message[BUFFER_SIZE];
+    sprintf(send_message, "BYE\r\n");
+    send(helper_value, send_message, strlen(send_message), 0);
+    close(helper_value);
+    exit(0); 
+}
 
 int main(int argc, char *argv[]) {
 
@@ -120,7 +128,7 @@ int main(int argc, char *argv[]) {
     char input_message[BUFFER_SIZE]; //user write message
     char send_message[BUFFER_SIZE];
     char response_message[BUFFER_SIZE];
-    char output_message[BUFFER_SIZE];
+    //char output_message[BUFFER_SIZE];
     char error_message[BUFFER_SIZE];
     char displayname[DNAME_SIZE];
 
@@ -149,7 +157,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-
+    helper_value=client_socket;
     // bool bye_message = false;
     // while (!bye_message) {
         //fgets(input_message, sizeof(input_message), stdin);
@@ -160,17 +168,20 @@ int main(int argc, char *argv[]) {
         //auth state
         while(!auth ){
             fgets(input_message, sizeof(input_message), stdin);
+            signal(SIGINT, sigint_handler);
             if(!process_help(input_message) && !process_rename(input_message, displayname) ){
                 if(process_auth(input_message, send_message, displayname)){
                     send(client_socket, send_message, strlen(send_message), 0);
                     recv(client_socket, response_message, BUFFER_SIZE, 0);
-                    if(income_err(response_message, error_message) || income_bye(response_message, output_message)){
+                    if(income_err(response_message, error_message) || income_bye(response_message)){
                         auth = true; //can exit auth state
                         open = false; //can not go to open state
+                        sprintf(send_message, "BYE\r\n");
+                        send(client_socket, send_message, strlen(send_message), 0);
                         
                     }else if(income_replye(response_message, error_message)){
                         auth = true;
-                    }else if(income_msg(response_message, output_message)){
+                    }else if(income_msg(response_message)){
                         auth = false;
                     }else{
                         auth = false;
@@ -188,6 +199,7 @@ int main(int argc, char *argv[]) {
         //open state
         while(open){
             fgets(input_message, sizeof(input_message), stdin);
+            signal(SIGINT, sigint_handler);
             if(process_help(input_message) || process_rename(input_message, displayname) ){
                 //fgets(input_message, sizeof(input_message), stdin);
                 
@@ -195,29 +207,35 @@ int main(int argc, char *argv[]) {
                 send(client_socket, send_message, strlen(send_message), 0);
                 recv(client_socket, response_message, BUFFER_SIZE, 0);
 
-                if(income_err(response_message, error_message) || income_bye(response_message, output_message)){
+                if(income_err(response_message, error_message) || income_bye(response_message)){
                     open = false; //can not go to open state
+                    sprintf(send_message, "BYE\r\n");
+                    send(client_socket, send_message, strlen(send_message), 0);
                     
                 }
-                else if(income_msg(response_message, output_message)){
+                else if(income_msg(response_message)){
                     open = true;
                     // printf("Response from server: %s", output_message);
                 }else{
                     income_replye(response_message, error_message);
                     open = true;
                 }
+            }else if(process_auth(input_message, send_message, displayname)){
 
-
+                fprintf(stderr, "ERR: duplicit authentification.\n");
+                open=false;
             }else{
                 process_message(input_message, send_message, displayname);
                 send(client_socket, send_message, strlen(send_message), 0);
                 recv(client_socket, response_message, BUFFER_SIZE, 0);
 
-                if(income_err(response_message, error_message) || income_bye(response_message, output_message)){
+                if(income_err(response_message, error_message) || income_bye(response_message)){
                     open = false; 
+                    sprintf(send_message, "BYE\r\n");
+                    send(client_socket, send_message, strlen(send_message), 0);
                     
                 }
-                else if(income_msg(response_message, output_message)){
+                else if(income_msg(response_message)){
                     open = true;;
                     // printf("Response from server: %s", output_message);
                 }else{
